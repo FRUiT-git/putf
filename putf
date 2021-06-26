@@ -1,0 +1,52 @@
+#!/bin/sh
+
+#set -x
+
+put_formated () 
+{
+  : ${COLUMNS:=$(tput cols || printf "80")}
+  : ${e:="\033"}         ;  n="${e}[m"
+  : ${M_BRACKETS:="[]"}  ;  bl="${M_BRACKETS%?}"   br="${M_BRACKETS#?}"
+  clip="((\\${e}|[[:cntrl:]])[\[\#\(\)][\?\(\)]?[0-9;]+?[ABCDfGHKsum]|[[:cntrl:]])"
+
+  if [ "^${1#-}" != "^${1}" ]; then while getopts ":abc:dehilL:noqrvy" m; do case ${m} in
+      e)    lb="fail"  cl="0;31"                              ;;
+      a)    lb=" !! "  cl="0;33"                              ;;
+      d)    lb="done"  cl="0;32"                              ;;
+      q)    lb=" ?? "  cl="0;32"                              ;;
+      h)    lb="help"  cl="1;30"                              ;;
+      r)    lb="ring"  cl="1;35"                              ;;
+      y|o)  lb=" OK "  cl="0;32"                              ;;
+      L)    lb="${OPTARG}"                                    ;;
+      l)    M_LEFT=1                                          ;;
+      n)    : ${lb:="info"} ; b="${b}$(tput cuu1)\r${e}[2K"   ;;
+      b)    b="${b}\007"                                      ;;
+      c)    cl="${OPTARG}"                                    ;;
+      v)    LOG=1                                             ;;
+      *)    lb="info"                                         ;;
+      \?)                                                     ;;
+    esac ; done ; shift $(($OPTIND-1))
+    STR="${1}"
+    lb="${M_LABEL:-${2:-${lb}}}"
+    cl="${e}[${M_LABEL_COLOR:-${3:-${cl:-"0;34"}}}m"
+    cb="${e}[${M_BRACKETS_COLOR:-${4:-${cb:-""}}}m"
+  else
+    STR="${*}"
+  fi
+  [ "${STR}" ] || return 0
+  [ "${lb}" ] && lb="$(printf "%04b" "${lb}" | expand | sed -r "s/${clip}//g")" || { bl= ; br= ; }
+  [ "${STR##*\\n}" = "${STR}" ] || M_LEFT=1
+
+  STR="$(printf "%b" "${M_PREFIX:+"$M_PREFIX$n "}${STR}" | expand)"
+  cc=$(printf "%b" "${STR}" | sed -r "s/${clip}//g" | wc -m)
+  co=$(($COLUMNS-${#lb}-${#bl}-${#br})); lr="${e}[${co}G"
+
+  [ $co -le $(($cc%$COLUMNS)) ] && { M_LEFT=1 STR="${STR}\n" ; } || co=$(($co-$cc-${#bl}))
+  [ $COLUMNS -lt $cc ] && M_LEFT=1
+  [ "$M_LEFT" ] || STR="${e}[${co}G${STR}"
+
+  STR="${b}${n}${STR}${lr}${n}${cb}${bl}${n}${cl}${lb}${n}${cb}${br}${n}"
+  printf "%b\n" "${STR}"
+}
+
+put_formated "${@}"
